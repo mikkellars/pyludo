@@ -15,21 +15,45 @@ $ pip3 install -e .
 ### examples
 Visualize a game with random players
 ```python
+from pyludo import LudoGame, LudoVisualizerStep
+import numpy as np
 import pyglet
-from pyludo import LudoGame, LudoPlayerRandom, LudoVisualizerStep
+import random
 
-game = LudoGame([LudoPlayerRandom() for _ in range(4)], info=True)
+class LudoPlayerRandom:
+    def play(self, state, dice_roll, next_states):
+        """
+        :param state:
+            current state relative to this player
+        :param dice_roll:
+            [1, 6]
+        :param next_states:
+            np array of length 4 with each entry being the next state moving the corresponding token.
+            False indicates an invalid move. 'play' won't be called, if there are no valid moves.
+        :return:
+            index of the token that is wished to be moved. If it is invalid, the first valid token will be chosen.
+        """
+        return random.choice(np.argwhere(next_states != False))
+players = [LudoPlayerRandom() for _ in range(4)]
+game = LudoGame(players, info=True)
 window = LudoVisualizerStep(game)
+print('use left and right arrow to progress game')
 pyglet.app.run()
-# use left and right arrow to progress game
 ```
 The above code can be run with the following command:
 ```
-$ python3 -m pyludo.LudoVisualizer
+$ python3 -m pyludo.examples.VisualizeRandomPlayerMatch
 ```
-See pyludo/LudoPlayerRandom.py for instructions of how to write a player.
 
-See tests/ludoStat.py for a headless example.
+See pyludo/examples/randomPlayerWinStats.py for a headless example.
+
+### relative token values
+* Home: -1
+* Common area: 0:51
+* End lane: 52:56
+* Goal: 99
+
+Note that when you move from home into the common area, you enter at position 1, not 0.
 
 ### implemented rules
 * Always four players.

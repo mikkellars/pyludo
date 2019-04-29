@@ -24,8 +24,8 @@ pos_to_index = [
 class LudoVisualizer(pyglet.window.Window):
     def __init__(self, state=None):
         super(LudoVisualizer, self).__init__()
-        self.state = LudoState() if state is None else state
 
+        self.state = LudoState() if state is None else state
         # set scaling
         self.width, self.height = 600, 600
         bg_img = self.load_img('ludoboard.png')
@@ -35,6 +35,12 @@ class LudoVisualizer(pyglet.window.Window):
         self.playerSprites = [self.load_sprite(color + 'Player.png') for color in player_colors]
         self.globeSprite = self.load_sprite('globe.png')
         self.starSprite = self.load_sprite('star.png')
+
+        # force draw first draw
+        self.switch_to()
+        self.dispatch_event("on_draw")
+        self.dispatch_events()
+        self.flip()
 
     def index_to_pixels(self, index, token_id=-1, offset_scale=2):
         offset = [(0, 0), (-1, -1), (1, -1), (1, 1), (-1, 1)][token_id + 1]
@@ -93,11 +99,3 @@ class LudoVisualizerStep(LudoVisualizer):
                 self.game.step()
                 self.states.append(self.game.state)
         self.state = self.states[self.state_index]
-
-
-if __name__ == '__main__':
-    from pyludo import LudoGame, LudoPlayerRandom
-
-    game = LudoGame([LudoPlayerRandom() for _ in range(4)], info=True)
-    window = LudoVisualizerStep(game)
-    pyglet.app.run()

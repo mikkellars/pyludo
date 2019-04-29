@@ -1,7 +1,7 @@
 import random
 import logging
 import numpy as np
-from pyludo.utils import player_colors
+from pyludo.utils import player_colors, star_jump, is_globe_pos
 
 
 class LudoState:
@@ -19,25 +19,36 @@ class LudoState:
     def __getitem__(self, item):
         return self.state[item]
 
+    def __setitem__(self, key, value):
+        self.state[key] = value
+
     def __iter__(self):
         return self.state.__iter__()
 
-    def get_relative_to_player(self, rel_player_id, keep_player_order=False):
+    @staticmethod
+    def get_tokens_relative_to_player(tokens, player_id):
+        if player_id == 0:
+            return tokens
+
+        rel_tokens = []
+        for token_id, token_pos in enumerate(tokens):
+            if token_pos == -1 or token_pos == 99:  # start and end pos are independent of player id
+                rel_tokens.append(token_pos)
+            elif token_pos < 52:  # in common area
+                rel_tokens.append((token_pos - player_id * 13) % 52)
+            else:  # in end area, 52 <= x < 52 + 20
+                rel_tokens.append(((token_pos - 52 - player_id * 5) % 20) + 52)
+        return rel_tokens
+
+    def get_state_relative_to_player(self, rel_player_id, keep_player_order=False):
         if rel_player_id == 0:
             return self.copy()
 
         rel = LudoState(empty=True)
         new_player_ids = list(range(4)) if keep_player_order else [(x - rel_player_id) % 4 for x in range(4)]
-
         for player_id, player_tokens in enumerate(self):
             new_player_id = new_player_ids[player_id]
-            for token_id, token_pos in enumerate(player_tokens):
-                if token_pos == -1 or token_pos == 99:  # start and end pos are independent of player id
-                    rel[new_player_id][token_id] = token_pos
-                elif token_pos < 52:  # in common area
-                    rel[new_player_id][token_id] = (token_pos - rel_player_id * 13) % 52
-                else:  # in end area, 52 <= x < 52 + 20
-                    rel[new_player_id][token_id] = ((token_pos - 52 - rel_player_id * 5) % 20) + 52
+            rel[new_player_id] = self.get_tokens_relative_to_player(player_tokens, rel_player_id)
 
         return rel
 
@@ -65,13 +76,13 @@ class LudoState:
         if target_pos < 52:
             occupants = opponents == target_pos
             occupant_count = np.sum(occupants)
-            if occupant_count > 1 or (occupant_count == 1 and self.is_globe_pos(target_pos)):
+            if occupant_count > 1 or (occupant_count == 1 and is_globe_pos(target_pos)):
                 player[token_id] = -1  # sends self home
                 return new_state
             if occupant_count == 1:
                 opponents[occupants] = -1
             player[token_id] = target_pos
-            star_jump_length = 0 if is_jump else self.star_jump(target_pos)
+            star_jump_length = 0 if is_jump else star_jump(target_pos)
             if star_jump_length:
                 if target_pos == 51:  # landed on the last star
                     player[token_id] = 99  # send directly to goal
@@ -94,21 +105,12 @@ class LudoState:
                 return player_id
         return -1
 
-    @staticmethod
-    def star_jump(pos):
-        if pos % 13 == 6:
-            return 6
-        if pos % 13 == 12:
-            return 7
-        return 0
 
-    @staticmethod
-    def is_globe_pos(pos):
-        if pos % 13 == 1:
-            return True
-        if pos % 13 == 9:
-            return True
-        return False
+class LudoStateFull:
+    def __init__(self, state, roll, next_states):
+        self.state = state
+        self.roll = roll
+        self.next_states = next_states
 
 
 class LudoGame:
@@ -129,18 +131,20 @@ class LudoGame:
         player = self.players[self.currentPlayerId]
 
         dice_roll = random.randint(1, 6)
-        logging.info("Dice roll: {} - {}".format(dice_roll, player_colors[self.currentPlayerId]))
+        logging.info("Dice roll = {}, {}/{}".format(dice_roll, player_colors[self.currentPlayerId], player.name))
 
-        relative_state = state.get_relative_to_player(self.currentPlayerId)
+        relative_state = state.get_state_relative_to_player(self.currentPlayerId)
         rel_next_states = np.array(
             [relative_state.move_token(token_id, dice_roll) for token_id in range(4)]
         )
         if np.any(rel_next_states != False):
             token_id = player.play(relative_state, dice_roll, rel_next_states)
+            if isinstance(token_id, np.ndarray):
+                token_id = token_id[0]
             if rel_next_states[token_id] is False:
                 logging.warning("Player chose invalid move. Choosing first valid move.")
                 token_id = np.argwhere(rel_next_states != False)[0][0]
-            self.state = rel_next_states[token_id].get_relative_to_player((-self.currentPlayerId) % 4)
+            self.state = rel_next_states[token_id].get_state_relative_to_player((-self.currentPlayerId) % 4)
 
     def play_full_game(self):
         while self.state.get_winner() == -1:

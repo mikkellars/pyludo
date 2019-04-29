@@ -41,9 +41,9 @@ window = LudoVisualizerStep(game)
 print('use left and right arrow to progress game')
 pyglet.app.run()
 ```
-The above code can be run with the following command:
+The equivalent of the above code can be run with the following command:
 ```
-$ python3 -m pyludo.examples.VisualizeRandomPlayerMatch
+$ python3 -m pyludo.examples.visualizeRandomPlayerMatch
 ```
 
 See pyludo/examples/randomPlayerWinStats.py for a headless example.

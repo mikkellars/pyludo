@@ -34,6 +34,7 @@ class LudoPlayerRandom:
             index of the token that is wished to be moved. If it is invalid, the first valid token will be chosen.
         """
         return random.choice(np.argwhere(next_states != False))
+
 players = [LudoPlayerRandom() for _ in range(4)]
 game = LudoGame(players, info=True)
 window = LudoVisualizerStep(game)
@@ -47,15 +48,20 @@ $ python3 -m pyludo.examples.VisualizeRandomPlayerMatch
 
 See pyludo/examples/randomPlayerWinStats.py for a headless example.
 
-### relative token values
-* Home: -1
-* Common area: 0:51
-* End lane: 52:56
-* Goal: 99
+### state representation
+The state is a numpy array of shape (4 players, 4 tokens)
+
+`state[i]` will then be the i'th player's tokens, and `state[i][k]` will be the value of the k'th token of player i.
+
+Home is -1, and goal is 99 for all players.
+The common area is from 0 to 51 but relative to player 0.
+The end lane is 52 to 56 for player 0, 57 to 61 for player 1, etc.
+
+A LudoPlayer is always fed a relative state, where the player itself is player 0.
 
 Note that when you move from home into the common area, you enter at position 1, not 0.
 
-### implemented rules
+### game rules
 * Always four players.
 * A player must roll a 6 to enter the board.
 * Rolling a 6 does not grant a new dice roll.

@@ -79,10 +79,10 @@ class LudoState:
             if occupant_count > 1 or (occupant_count == 1 and is_globe_pos(target_pos)):
                 player[token_id] = -1  # sends self home
                 return new_state
-            if occupant_count == 1:
+            star_jump_length = 0 if is_jump else star_jump(target_pos)
+            if occupant_count == 1 and star_jump_length == 0:
                 opponents[occupants] = -1
             player[token_id] = target_pos
-            star_jump_length = 0 if is_jump else star_jump(target_pos)
             if star_jump_length:
                 if target_pos == 51:  # landed on the last star
                     player[token_id] = 99  # send directly to goal

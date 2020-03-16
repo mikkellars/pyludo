@@ -12,7 +12,6 @@ def star_jump(pos):
         return 7
     return 0
 
-
 def is_globe_pos(pos):
     if pos == -1 or pos > 51:
         return False
@@ -72,3 +71,27 @@ def token_vulnerability(state, token_id):
                 if not would_enter_end_zone and 1 <= req_dice_roll <= 6:
                     n += 1
     return n
+
+##################### My functions ################################
+
+def is_stacked(state):
+    player = state[0]
+    stacked = [False] * 4
+
+    # sum of equal elements bigger than 1
+    for i, token in enumerate(player):
+        
+        if(token == -1):
+            continue
+        if(token > 51):
+            continue
+
+        if np.sum( player == token ) > 1:
+            stacked[i] = True
+
+    return stacked
+
+def is_on_opponent_globe(state):
+    player = state[0]
+    s = np.logical_or(player == 14, player == 27, player == 40)
+    return s

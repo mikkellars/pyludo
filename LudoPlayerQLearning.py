@@ -1,4 +1,5 @@
 import random
+import csv
 import numpy as np
 from pyludo.utils import token_vulnerability, is_stacked, is_globe_pos, is_on_opponent_globe
 
@@ -57,14 +58,58 @@ class LudoPlayerQLearning:
 
     # MAKE Q-TABLE #
 
-    def __update_Q_table(self, state, q_value):
+    def __updateQTable(self, tokenState, qValue):
+        # Update dictionary
+        strTokenState = str(tokenState)
 
-        self.__QTable[state] = [q_value] # Update dictionary
+        if (strTokenState in self.__QTable):
+            tmpQValue = self.__QTable[strTokenState]
+            self.__QTable[strTokenState] = np.add(qValue, tmpQValue)  
+        # Make new entry
+        else:
+            self.__QTable[strTokenState] = qValue
+
+    def saveQTable(self):
+        w = csv.writer(open("QTable.csv", "w"))
+        for key, val in self.__QTable.items():
+            w.writerow([key, val])
+
+
+    def printQTable(self):
+        print(self.__QTable)
+        print("argmax", np.argmax(self.__QTable[str(np.array([0, 0, 0, 0]))]))
+
+
+    # MAKE POLICiES #
+    
+    def epsilonGreedyPolicy(self, QTable, epsilon): 
+        """ 
+        Creates an epsilon-greedy policy based 
+        on a given Q-function and epsilon. 
         
+        Returns a function that takes the state 
+        as an input and returns the probabilities 
+        for each action in the form of a numpy array  
+        of length of the action space(set of possible actions). 
+        """
+        def policyFunction(tokenState): 
+            num_actions = 4
+            Action_probabilities = np.ones(num_actions, 
+                    dtype = float) * epsilon / num_actions 
+            print(Action_probabilities)
+            best_action = np.argmax(QTable[tokenState]) 
+            Action_probabilities[best_action] += (1.0 - epsilon) 
+            return Action_probabilities 
+    
+        return policyFunction 
+    
+
+
 
 
     def play(self, state, dice_roll, next_states):
-        self.__getTokenState(state)
+        tokenState = self.__getTokenState(state)
+        self.__updateQTable(tokenState, np.array([0, 1, 0, 0]))
         return random.choice(np.argwhere(next_states != False))
         pass
         #return # return number token want to move

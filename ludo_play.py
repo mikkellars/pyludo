@@ -14,10 +14,14 @@ for i, player in enumerate(players):
     player.id = i # selv tildele atributter uden defineret i klassen
     
 
-random.shuffle(players)
+#random.shuffle(players)
 ludoGame = LudoGame(players)
 
 print(ludoGame.play_full_game())
+
+players[3].printQTable()
+players[3].saveQTable()
+
 # score = [0, 0, 0, 0]
 
 # n = 10

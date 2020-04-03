@@ -1,7 +1,10 @@
 import random
 import csv
+import os
 import numpy as np
+import pandas as pd
 from pyludo.utils import token_vulnerability, is_stacked, is_globe_pos, is_on_opponent_globe
+from pyludo.LudoGame import LudoState
 
 class LudoPlayerQLearning:
     ####### Class variables ########
@@ -21,12 +24,19 @@ class LudoPlayerQLearning:
     # Actions
     actions = [0, 1, 2, 3] # chooses the token number
 
-    def __init__(self):
-        self.__tokenState = 8 # Describes best choices for tokens based on board state
-        self.__QTable = dict()
+    def __init__(self, chosenPolicy):
+        self.__QTable = self.readQTable() # if not an existing file returning empty dictionary
+        
+        self.__chosenPolicy = chosenPolicy
+
+        # Parameters
+        self.__epsilon = 0.1
+        self.__discount_factor = 1.0 
+        self.__alpha = 0.6
 
     # STATE REPRESENTATION #
     def __getTokenState(self, state):
+        #print("bob",state.state[0])
         currentPlayerState = np.copy(state.state[0])
 
         # Set all to normal if no criteria is true
@@ -52,7 +62,7 @@ class LudoPlayerQLearning:
         # Token inside goal
         currentPlayerState[state.state[0] == 99] = LudoPlayerQLearning.goal
 
-        print(currentPlayerState) # State is all 4 players with current player as index = 0
+        #print(currentPlayerState) # State is all 4 players with current player as index = 0
         return currentPlayerState
 
 
@@ -64,25 +74,68 @@ class LudoPlayerQLearning:
 
         if (strTokenState in self.__QTable):
             tmpQValue = self.__QTable[strTokenState]
+            print(tmpQValue.shape)
             self.__QTable[strTokenState] = np.add(qValue, tmpQValue)  
         # Make new entry
         else:
             self.__QTable[strTokenState] = qValue
 
     def saveQTable(self):
-        w = csv.writer(open("QTable.csv", "w"))
+        csv_writer = csv.writer(open("QTable.csv", "a", newline=''), quoting=csv.QUOTE_NONNUMERIC)
         for key, val in self.__QTable.items():
-            w.writerow([key, val])
+            csv_writer.writerow([key, val])
+        print("QTable saved succefully")
 
+    def readQTable(self):
+        tmpQTable = dict()
+        if os.path.isfile("QTable.csv"):
+            print("QTable read succefully")
+            csv_reader = pd.read_csv("QTable.csv")
+
+            for val in csv_reader.values:
+                state = val[0]
+                QVal = np.array(val[1])
+                tmpQTable[state] = QVal
+        else:
+            print ("QTable file not found, making a new")
+        
+        return tmpQTable
+
+        
 
     def printQTable(self):
         print(self.__QTable)
-        print("argmax", np.argmax(self.__QTable[str(np.array([0, 0, 0, 0]))]))
+      #  print("argmax", np.argmax(self.__QTable[str(np.array([0, 0, 0, 0]))]))
+        pass
 
 
-    # MAKE POLICiES #
+    # REWARD FUNCTION #
+    def __calc_reward(self, next_token_state):
+        reward = 0
+        if (next_token_state == np.array([6, 6, 6, 6])).all():
+            reward = LudoPlayerQLearning.win
+
+        return reward
+
+    # MAKE POLICIES #
     
-    def epsilonGreedyPolicy(self, QTable, epsilon): 
+
+    def __valid_actions(self, next_states):
+        """
+        Based all the next_states it finds valid actions (token that can move) and 
+        sets 1 if valid, 0 if invalid and returns it. 
+        """
+        valid_actions = []
+        for token_id, next_state in enumerate(next_states):
+            if next_state is not False:
+                valid_actions.append(1)
+            else:
+                valid_actions.append(0)
+        return np.array(valid_actions)
+
+
+
+    def policies(self, QTable, epsilon, state, next_states): # Inspiration from https://www.geeksforgeeks.org/q-learning-in-python/?fbclid=IwAR1UXR88IuJBhhTakjxNq_gcf3nCmJB0puuoA46J8mZnEan_qx9hhoFzhK8
         """ 
         Creates an epsilon-greedy policy based 
         on a given Q-function and epsilon. 
@@ -92,24 +145,105 @@ class LudoPlayerQLearning:
         for each action in the form of a numpy array  
         of length of the action space(set of possible actions). 
         """
-        def policyFunction(tokenState): 
-            num_actions = 4
-            Action_probabilities = np.ones(num_actions, 
-                    dtype = float) * epsilon / num_actions 
-            print(Action_probabilities)
-            best_action = np.argmax(QTable[tokenState]) 
-            Action_probabilities[best_action] += (1.0 - epsilon) 
+        num_actions = 4
+        def epsilonGreedyPolicy(tokenState): 
+            tmpTokenState = str(tokenState)
+                
+            valid_actions = self.__valid_actions(next_states)
+            valid_act_len = len(np.where(valid_actions==True)[0])
+
+            Action_probabilities = np.ones(num_actions, dtype = float) * epsilon / valid_act_len  # divides probability based on number of valid actions and epsilon (each 0.025 if 4 actions)       
+            Action_probabilities *= valid_actions   
+
+            # If same values in QTable choose random valid action 
+            if( np.equal.reduce( QTable[tmpTokenState] == QTable[tmpTokenState]) ):
+                best_action = random.choice(np.argwhere(valid_actions == True))
+            else:
+                best_action = np.argmax(QTable[tmpTokenState]) # Find index of action which gives highest QValue
+
+            Action_probabilities[best_action] += (1.0 - epsilon) # Assigns rest probability to best action so probability sums to 1
+
             return Action_probabilities 
-    
-        return policyFunction 
-    
+
+        def greedyPolicy(tokenState):
+            tmpTokenState = str(tokenState)
+
+            valid_actions = self.__valid_actions(next_states)
+
+            Action_probabilities = np.zeros(num_actions, dtype = float)
+
+            # If same values in QTable choose random valid action 
+            if( np.equal.reduce( QTable[tmpTokenState] == QTable[tmpTokenState]) ):
+                best_action = random.choice(np.argwhere(valid_actions == True))
+            else:
+                best_action = np.argmax(QTable[tmpTokenState]) # Find index of action which gives highest QValue
+
+            Action_probabilities[best_action] += 1.0
+            return Action_probabilities
+
+
+        if(self.__chosenPolicy == "epsilon greedy"):
+            return epsilonGreedyPolicy 
+        if(self.__chosenPolicy == "greedy"):
+            return greedyPolicy
+
+
+    # Q LEARNING #
+    def QLearning(self, state, next_states):  # Inspiration from https://www.geeksforgeeks.org/q-learning-in-python/?fbclid=IwAR1UXR88IuJBhhTakjxNq_gcf3nCmJB0puuoA46J8mZnEan_qx9hhoFzhK8
+        
+        # Convert statespace representation
+        tokenState = self.__getTokenState(state)
+
+        # Creates entry if current state does not exists
+        self.__updateQTable(tokenState, np.array([0, 0, 0, 0]))
+
+        # Get probabilites based on initialized policy (chosenPolicy)
+        policy = self.policies(self.__QTable, self.__epsilon, state, next_states) # returns a policy function
+        actionProbability = policy(tokenState)
+
+        # Choose action based on the probability distribution
+        action = np.random.choice( LudoPlayerQLearning.actions, p=actionProbability )
+
+        # Find next state based on action and updates Q-table. 
+        # DEFINE A FUNCTION WHICH GIVES REWARDS BASED ON THE NEXT STATE #
+        
+        next_state = next_states[action] # Current player = 0
+        nextTokenState = self.__getTokenState(next_state)
+        reward = self.__calc_reward(nextTokenState)
+
+        # Creates entry if nextTokenState does not exists
+        self.__updateQTable(nextTokenState, np.array([0, 0, 0, 0]))
+
+        # Update based on TD Update
+        # If same values in QTable choose random valid action 
+        
+        if( np.equal.reduce( self.__QTable[str(nextTokenState)] == self.__QTable[str(nextTokenState)]) ):
+            best_next_action = np.random.choice(LudoPlayerQLearning.actions)
+        else:
+            best_next_action = np.argmax(self.__QTable[str(nextTokenState)])     
+
+        #print(self.__QTable[str(nextTokenState)])
+        #print("best_next_action", best_next_action)
+
+        td_target = reward + self.__discount_factor * self.__QTable[str(nextTokenState)][best_next_action] 
+        td_delta = td_target - self.__QTable[str(tokenState)][action] 
+        update_val = self.__alpha * td_delta 
+        Q_val_update = np.array([0, 0, 0, 0])
+        np.add.at(Q_val_update, action, update_val)
+
+        self.__updateQTable(tokenState, Q_val_update)
+
+        # print("n",nextTokenState)
+        #print("r",reward)
+
+        return action
+
+
 
 
 
 
     def play(self, state, dice_roll, next_states):
-        tokenState = self.__getTokenState(state)
-        self.__updateQTable(tokenState, np.array([0, 1, 0, 0]))
-        return random.choice(np.argwhere(next_states != False))
-        pass
-        #return # return number token want to move
+        action = self.QLearning(state, next_states)
+
+        return action # return number token want to move

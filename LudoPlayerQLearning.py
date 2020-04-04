@@ -71,31 +71,24 @@ class LudoPlayerQLearning:
     def __updateQTable(self, tokenState, qValue):
         # Update dictionary
         strTokenState = str(tokenState)
-
+        #print(self.__QTable[strTokenState])
         if (strTokenState in self.__QTable):
             tmpQValue = self.__QTable[strTokenState]
-            print(tmpQValue.shape)
+            tmpQValue.astype(float)
             self.__QTable[strTokenState] = np.add(qValue, tmpQValue)  
         # Make new entry
         else:
             self.__QTable[strTokenState] = qValue
 
     def saveQTable(self):
-        csv_writer = csv.writer(open("QTable.csv", "a", newline=''), quoting=csv.QUOTE_NONNUMERIC)
-        for key, val in self.__QTable.items():
-            csv_writer.writerow([key, val])
+        np.save("QTable.npy",self.__QTable)
         print("QTable saved succefully")
 
     def readQTable(self):
         tmpQTable = dict()
-        if os.path.isfile("QTable.csv"):
-            print("QTable read succefully")
-            csv_reader = pd.read_csv("QTable.csv")
-
-            for val in csv_reader.values:
-                state = val[0]
-                QVal = np.array(val[1])
-                tmpQTable[state] = QVal
+        if os.path.isfile("QTable.npy"):
+            tmpQTable = np.load('QTable.npy',allow_pickle=True).item()
+            print("QTable read succefully with " + str(len(tmpQTable)) + " number of states")
         else:
             print ("QTable file not found, making a new")
         

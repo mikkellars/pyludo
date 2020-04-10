@@ -26,9 +26,10 @@ class LudoPlayerQLearning:
 
     def __init__(self, chosenPolicy):
         self.__QTable = self.readQTable() # if not an existing file returning empty dictionary
-        
-        self.__chosenPolicy = chosenPolicy
+        self.total_reward = 0
 
+        self.__chosenPolicy = chosenPolicy
+        
         # Parameters
         self.__epsilon = 0.1
         self.__discount_factor = 1.0 
@@ -71,30 +72,42 @@ class LudoPlayerQLearning:
     def __updateQTable(self, tokenState, qValue):
         # Update dictionary
         strTokenState = str(tokenState)
-        #print(self.__QTable[strTokenState])
+
         if (strTokenState in self.__QTable):
             tmpQValue = self.__QTable[strTokenState]
-            tmpQValue.astype(float)
             self.__QTable[strTokenState] = np.add(qValue, tmpQValue)  
         # Make new entry
         else:
             self.__QTable[strTokenState] = qValue
 
     def saveQTable(self):
-        np.save("QTable.npy",self.__QTable)
+        csv_writer = csv.writer(open("QTable.csv", "a", newline=''))
+        for key, val in self.__QTable.items():
+            csv_writer.writerow((key, val))
         print("QTable saved succefully")
 
     def readQTable(self):
         tmpQTable = dict()
-        if os.path.isfile("QTable.npy"):
-            tmpQTable = np.load('QTable.npy',allow_pickle=True).item()
-            print("QTable read succefully with " + str(len(tmpQTable)) + " number of states")
+        if os.path.isfile("QTable.csv"):
+            read = csv.reader(open('QTable.csv'))
+            i = 0
+            for row in read:
+                i = i + 1
+                state, QVal = row
+                QVal = np.fromstring(QVal[1:-1], sep=' ')
+                tmpQTable[state] = QVal
+            print("QTable read succefully. Found " + str(i) + " states")
         else:
             print ("QTable file not found, making a new")
         
         return tmpQTable
 
-        
+    def saveReward(self):
+        with open("Reward.csv", 'a', newline='') as csv_file:
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow([(self.total_reward)])
+        # Resets total_reward for next game
+        self.total_reward = 0
 
     def printQTable(self):
         print(self.__QTable)
@@ -183,7 +196,6 @@ class LudoPlayerQLearning:
 
     # Q LEARNING #
     def QLearning(self, state, next_states):  # Inspiration from https://www.geeksforgeeks.org/q-learning-in-python/?fbclid=IwAR1UXR88IuJBhhTakjxNq_gcf3nCmJB0puuoA46J8mZnEan_qx9hhoFzhK8
-        
         # Convert statespace representation
         tokenState = self.__getTokenState(state)
 
@@ -203,7 +215,7 @@ class LudoPlayerQLearning:
         next_state = next_states[action] # Current player = 0
         nextTokenState = self.__getTokenState(next_state)
         reward = self.__calc_reward(nextTokenState)
-
+        self.total_reward += reward
         # Creates entry if nextTokenState does not exists
         self.__updateQTable(nextTokenState, np.array([0, 0, 0, 0]))
 

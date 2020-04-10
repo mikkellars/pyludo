@@ -1,10 +1,10 @@
 from pyludo import LudoGame, LudoPlayerRandom
 import random
 import time
-
+import numpy as np
 import sys
 from LudoPlayerQLearning import LudoPlayerQLearning
-
+from PlotStatistics import PlotStatistics
 
 
 
@@ -24,16 +24,21 @@ for i, player in enumerate(players):
 
 score = [0, 0, 0, 0]
 
-n = 1
+n = 3
 
 start_time = time.time()
 for i in range(n):
     random.shuffle(players)
     ludoGame = LudoGame(players)
+    
+    for player in players: # Saving reward for QLearning player
+        if player.id == 3:
+            player.saveReward()
 
     winner = ludoGame.play_full_game()
     score[players[winner].id] += 1
-    print('Game ', i, ' done')
+    if i%100==0:
+        print('Game ', i, ' done')
 
 for player in players:
     if player.id == 3:
@@ -42,4 +47,9 @@ for player in players:
 duration = time.time() - start_time
 
 print('win distribution:', score)
+
+print('win distribution percentage', (score/np.sum(score))*100)
 print('games per second:', n / duration)
+
+Plot = PlotStatistics()
+Plot.plotReward(pathToCSV="Reward.csv", numMovAvg=100)

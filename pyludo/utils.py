@@ -34,9 +34,9 @@ def will_send_opponent_home(state, next_state):
     return np.sum(state[1:] == -1) < np.sum(next_state[1:] == -1)
 
 
-def token_vulnerability(state, token_id):
+def token_vulnerability(state, token_id, player_num):
     """ returns an approximation of the amount, n, of opponent dice rolls that can send the token home """
-    player = state[0]
+    player = state[player_num]
     token = player[token_id]
 
     if token == -1 or token == 1 or token > 51:  # in home, start or end positions
@@ -55,7 +55,11 @@ def token_vulnerability(state, token_id):
     if star > 0:
         star = 6 if star == 7 else 7
 
-    for opponent_id in range(1, 4):
+    
+    for opponent_id in range(0, 4):
+        if opponent_id == player_num:
+            continue
+        
         opponent = state[opponent_id]
         for opp_token in set(opponent):
             if opp_token == -1 or opp_token > 51:
@@ -74,8 +78,8 @@ def token_vulnerability(state, token_id):
 
 ##################### My functions ################################
 
-def is_stacked(state):
-    player = state[0]
+def is_stacked(state, player_num):
+    player = state[player_num]
     stacked = [False] * 4
 
     # sum of equal elements bigger than 1
@@ -91,7 +95,7 @@ def is_stacked(state):
 
     return stacked
 
-def is_on_opponent_globe(state):
-    player = state[0]
+def is_on_opponent_globe(state, player_num):
+    player = state[player_num]
     s = np.logical_or(player == 14, player == 27, player == 40)
     return s

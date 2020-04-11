@@ -19,7 +19,11 @@ class LudoPlayerQLearning:
     goal = 6 # when token is inside goal
 
     # Rewards
-    win = 10
+    safe = 5
+    got_vulnerable = -5
+    knock_home = 5
+    suicide = -5
+    win = 10    
     
     # Actions
     actions = [0, 1, 2, 3] # chooses the token number
@@ -32,39 +36,39 @@ class LudoPlayerQLearning:
         
         # Parameters
         self.__epsilon = 0.1
-        self.__discount_factor = 1.0 
-        self.__alpha = 0.6
+        self.__discount_factor = 0.9 
+        self.__alpha = 0.5
 
     # STATE REPRESENTATION #
-    def __getTokenState(self, state):
+    def __getTokenState(self, state, player_num):
         #print("bob",state.state[0])
-        currentPlayerState = np.copy(state.state[0])
+        tokenState = np.copy(state.state[player_num])
 
         # Set all to normal if no criteria is true
-        currentPlayerState[:] = LudoPlayerQLearning.normal
+        tokenState[:] = LudoPlayerQLearning.normal
 
         # Homed
-        currentPlayerState[state.state[0] == -1] = LudoPlayerQLearning.homed
+        tokenState[state.state[player_num] == -1] = LudoPlayerQLearning.homed
         
         # Vulnerable
-        tmp = [token_vulnerability(state, token_id) > 0 for token_id in range(4)]
-        currentPlayerState[tmp] = LudoPlayerQLearning.vulnerable
+        tmp = [token_vulnerability(state, token_id, player_num) > 0 for token_id in range(4)]
+        tokenState[tmp] = LudoPlayerQLearning.vulnerable
 
         # Stacked
-        currentPlayerState[is_stacked(state.state)] = LudoPlayerQLearning.stacked
+        tokenState[is_stacked(state.state, player_num)] = LudoPlayerQLearning.stacked
 
         # On globe
-        tmp = [is_globe_pos(token) for token in state.state[0]]
-        currentPlayerState[tmp] = LudoPlayerQLearning.globe
+        tmp = [is_globe_pos(token) for token in state.state[player_num]]
+        tokenState[tmp] = LudoPlayerQLearning.globe
 
         # On other players home globe
-        currentPlayerState[is_on_opponent_globe(state.state)] = LudoPlayerQLearning.globe_home
+        tokenState[is_on_opponent_globe(state.state, player_num)] = LudoPlayerQLearning.globe_home
 
         # Token inside goal
-        currentPlayerState[state.state[0] == 99] = LudoPlayerQLearning.goal
+        tokenState[state.state[player_num] == 99] = LudoPlayerQLearning.goal
 
         #print(currentPlayerState) # State is all 4 players with current player as index = 0
-        return currentPlayerState
+        return tokenState
 
 
     # MAKE Q-TABLE #
@@ -81,7 +85,7 @@ class LudoPlayerQLearning:
             self.__QTable[strTokenState] = qValue
 
     def saveQTable(self):
-        csv_writer = csv.writer(open("QTable.csv", "a", newline=''))
+        csv_writer = csv.writer(open("QTable.csv", "w", newline=''))
         for key, val in self.__QTable.items():
             csv_writer.writerow((key, val))
         print("QTable saved succefully")
@@ -116,10 +120,66 @@ class LudoPlayerQLearning:
 
 
     # REWARD FUNCTION #
-    def __calc_reward(self, next_token_state):
+    def __get_diff_next_states(self, tokenStatePlayers, nextTokenStatePlayers):
+        diff_next_states = []
+        for player_num, player_state in enumerate(tokenStatePlayers):
+            tokenState = player_state
+            nextTokenState = nextTokenStatePlayers[player_num]
+            diff = tokenState != nextTokenState
+            diff_next_states.append(nextTokenState[diff]) # Is empty if there are no diff between state and nextstate
+
+        return diff_next_states
+
+    def __did_knock_home(self, diff_next_states):
+        did_knock_home = False
+        # Delete current players entry
+        diff_next_states.remove(diff_next_states[0])
+        for diff_next_state in diff_next_states:
+            if len(diff_next_state[diff_next_state == LudoPlayerQLearning.homed]) >= 1:
+                did_knock_home = True
+
+        return did_knock_home
+
+    def __calc_reward(self, state, next_states_based_action):
+
         reward = 0
-        if (next_token_state == np.array([6, 6, 6, 6])).all():
+
+        tokenStatePlayers = [self.__getTokenState(state, player_id) for player_id in range(0,4)]
+        nextTokenStatePlayers = [self.__getTokenState(next_states_based_action, player_id) for player_id in range(0,4)]
+
+        diff_next_states = self.__get_diff_next_states(tokenStatePlayers, nextTokenStatePlayers)
+        diff_next_state = diff_next_states[0] # current player
+
+        # Can sometimes be more than one elemtents, but only when transitioning to stacked state or normal or both or hitting more six in a row. Thus setting to size 1
+        if (len(diff_next_state) != 0):
+            if (np.equal.reduce(diff_next_state == LudoPlayerQLearning.stacked)): # more than one stacked
+                diff_next_state = np.array([LudoPlayerQLearning.stacked])
+            elif( np.equal.reduce(diff_next_state == LudoPlayerQLearning.normal)): # more than one normal
+                diff_next_state = np.array([LudoPlayerQLearning.normal])
+            elif( len(diff_next_state[diff_next_state == LudoPlayerQLearning.stacked]) >= 1): # one normal and one stacked
+                diff_next_state = np.array([LudoPlayerQLearning.stacked])
+            elif( len(diff_next_state[diff_next_state == LudoPlayerQLearning.globe]) >= 1): # one/two normal and one globe
+                diff_next_state = np.array([LudoPlayerQLearning.globe])
+            elif( len(diff_next_state[diff_next_state == LudoPlayerQLearning.vulnerable]) >= 1): # one/two normal and one globe (hitting six more than one time)
+                diff_next_state = np.array([LudoPlayerQLearning.vulnerable])
+            elif( len(diff_next_state[diff_next_state == LudoPlayerQLearning.globe_home]) >= 1): # one/two normal and one globe home (hitting six more than one time)
+                diff_next_state = np.array([LudoPlayerQLearning.globe_home])
+            elif( len(diff_next_state[diff_next_state == LudoPlayerQLearning.goal]) >= 1): # one/two normal and one goal (hitting six more than one time)
+                diff_next_state = np.array([LudoPlayerQLearning.goal])
+
+
+        if (nextTokenStatePlayers[0] == np.array([LudoPlayerQLearning.goal, LudoPlayerQLearning.goal, LudoPlayerQLearning.goal, LudoPlayerQLearning.goal])).all():
             reward = LudoPlayerQLearning.win
+        elif(diff_next_state == LudoPlayerQLearning.homed):
+            reward = LudoPlayerQLearning.suicide
+        elif(diff_next_state == LudoPlayerQLearning.globe or diff_next_state == LudoPlayerQLearning.stacked):
+            reward = LudoPlayerQLearning.safe
+        elif(diff_next_state == LudoPlayerQLearning.vulnerable or diff_next_state == LudoPlayerQLearning.globe_home):
+            reward = LudoPlayerQLearning.got_vulnerable
+
+        # # Checking for knocking home an opponent player
+        if self.__did_knock_home(diff_next_states):
+            reward += LudoPlayerQLearning.knock_home
 
         return reward
 
@@ -128,7 +188,7 @@ class LudoPlayerQLearning:
 
     def __valid_actions(self, next_states):
         """
-        Based all the next_states it finds valid actions (token that can move) and 
+        Based on all the next_states it finds valid actions (token that can move) and 
         sets 1 if valid, 0 if invalid and returns it. 
         """
         valid_actions = []
@@ -154,7 +214,7 @@ class LudoPlayerQLearning:
         num_actions = 4
         def epsilonGreedyPolicy(tokenState): 
             tmpTokenState = str(tokenState)
-                
+            
             valid_actions = self.__valid_actions(next_states)
             valid_act_len = len(np.where(valid_actions==True)[0])
 
@@ -197,8 +257,8 @@ class LudoPlayerQLearning:
     # Q LEARNING #
     def QLearning(self, state, next_states):  # Inspiration from https://www.geeksforgeeks.org/q-learning-in-python/?fbclid=IwAR1UXR88IuJBhhTakjxNq_gcf3nCmJB0puuoA46J8mZnEan_qx9hhoFzhK8
         # Convert statespace representation
-        tokenState = self.__getTokenState(state)
-
+        tokenState = self.__getTokenState(state, 0)
+        
         # Creates entry if current state does not exists
         self.__updateQTable(tokenState, np.array([0, 0, 0, 0]))
 
@@ -211,10 +271,9 @@ class LudoPlayerQLearning:
 
         # Find next state based on action and updates Q-table. 
         # DEFINE A FUNCTION WHICH GIVES REWARDS BASED ON THE NEXT STATE #
-        
-        next_state = next_states[action] # Current player = 0
-        nextTokenState = self.__getTokenState(next_state)
-        reward = self.__calc_reward(nextTokenState)
+        next_states_based_action = next_states[action] 
+        nextTokenState = self.__getTokenState(next_states_based_action, 0) # getTokenState handles that it is state[0] that is current player
+        reward = self.__calc_reward(state, next_states_based_action)
         self.total_reward += reward
         # Creates entry if nextTokenState does not exists
         self.__updateQTable(nextTokenState, np.array([0, 0, 0, 0]))

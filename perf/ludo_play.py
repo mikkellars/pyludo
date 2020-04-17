@@ -3,8 +3,8 @@ import time
 import numpy as np
 import sys
 #sys.path.append('../Performance/')
-from perf.ludo import LudoGame
-from perf.ludo.StandardLudoPlayers import LudoPlayerRandom
+from pyludo import LudoGame
+from pyludo.StandardLudoPlayers import LudoPlayerRandom
 #from LudoPlayerQLearning import LudoPlayerQLearning
 #from PlotStatistics import PlotStatistics
 #import multiprocessing

@@ -3,8 +3,8 @@ import csv
 import os
 import numpy as np
 import pandas as pd
-from pyludo.utils import token_vulnerability, is_stacked, is_globe_pos, is_on_opponent_globe
-from pyludo.LudoGame import LudoState
+from perf.ludo.utils import token_vulnerability, is_stacked, is_globe_pos, is_on_opponent_globe
+from perf.ludo.LudoGame import LudoState
 
 class LudoPlayerQLearning:
     ####### Class variables ########
@@ -19,25 +19,32 @@ class LudoPlayerQLearning:
     goal = 6 # when token is inside goal
 
     # Rewards
-    safe = 5
+    safe = 10
     got_vulnerable = -5
-    knock_home = 5
-    suicide = -5
-    win = 10    
+    knock_home = 10
+    suicide = -10
+
+    one_token_win = 20
+    win = 20    
     
     # Actions
     actions = [0, 1, 2, 3] # chooses the token number
 
-    def __init__(self, chosenPolicy):
-        self.__QTable = self.readQTable() # if not an existing file returning empty dictionary
-        self.total_reward = 0
-
+    def __init__(self, chosenPolicy, QtableName, RewardName, epsilon, discount_factor, learning_rate):
         self.__chosenPolicy = chosenPolicy
         
         # Parameters
-        self.__epsilon = 0.1
-        self.__discount_factor = 0.9 
-        self.__alpha = 0.5
+        self.__epsilon = epsilon
+        self.__discount_factor = discount_factor
+        self.__alpha = learning_rate
+
+        # Save and Read parameters
+        self.Qtable_save_name = QtableName + f'_e-{epsilon}_d-{discount_factor}_a-{learning_rate}.csv'
+        self.Reward_save_name = RewardName + f'_e-{epsilon}_d-{discount_factor}_a-{learning_rate}.csv'
+
+        self.__QTable = self.readQTable() # if not an existing file returning empty dictionary
+        self.total_reward = 0.0
+
 
     # STATE REPRESENTATION #
     def __getTokenState(self, state, player_num):
@@ -85,15 +92,16 @@ class LudoPlayerQLearning:
             self.__QTable[strTokenState] = qValue
 
     def saveQTable(self):
-        csv_writer = csv.writer(open("QTable.csv", "w", newline=''))
+        csv_writer = csv.writer(open(self.Qtable_save_name, "w", newline=''))
         for key, val in self.__QTable.items():
             csv_writer.writerow((key, val))
         print("QTable saved succefully")
 
     def readQTable(self):
+
         tmpQTable = dict()
-        if os.path.isfile("QTable.csv"):
-            read = csv.reader(open('QTable.csv'))
+        if os.path.isfile(self.Qtable_save_name):
+            read = csv.reader(open(self.Qtable_save_name))
             i = 0
             for row in read:
                 i = i + 1
@@ -107,7 +115,7 @@ class LudoPlayerQLearning:
         return tmpQTable
 
     def saveReward(self):
-        with open("Reward.csv", 'a', newline='') as csv_file:
+        with open(self.Reward_save_name, 'a', newline='') as csv_file:
             csv_writer = csv.writer(csv_file)
             csv_writer.writerow([(self.total_reward)])
         # Resets total_reward for next game
@@ -170,6 +178,8 @@ class LudoPlayerQLearning:
 
         if (nextTokenStatePlayers[0] == np.array([LudoPlayerQLearning.goal, LudoPlayerQLearning.goal, LudoPlayerQLearning.goal, LudoPlayerQLearning.goal])).all():
             reward = LudoPlayerQLearning.win
+        elif(diff_next_state == LudoPlayerQLearning.goal):
+            reward = LudoPlayerQLearning.one_token_win
         elif(diff_next_state == LudoPlayerQLearning.homed):
             reward = LudoPlayerQLearning.suicide
         elif(diff_next_state == LudoPlayerQLearning.globe or diff_next_state == LudoPlayerQLearning.stacked):
@@ -219,13 +229,14 @@ class LudoPlayerQLearning:
             valid_act_len = len(np.where(valid_actions==True)[0])
 
             Action_probabilities = np.ones(num_actions, dtype = float) * epsilon / valid_act_len  # divides probability based on number of valid actions and epsilon (each 0.025 if 4 actions)       
-            Action_probabilities *= valid_actions   
+            Action_probabilities = np.multiply(Action_probabilities, valid_actions)
 
             # If same values in QTable choose random valid action 
-            if( np.equal.reduce( QTable[tmpTokenState] == QTable[tmpTokenState]) ):
-                best_action = random.choice(np.argwhere(valid_actions == True))
-            else:
-                best_action = np.argmax(QTable[tmpTokenState]) # Find index of action which gives highest QValue
+            best_action = np.argmax(QTable[tmpTokenState]) # Find index of action which gives highest QValue
+            i = 3
+            while not valid_actions[best_action]:
+                best_action = np.argsort(QTable[tmpTokenState])[i]
+                i -= 1
 
             Action_probabilities[best_action] += (1.0 - epsilon) # Assigns rest probability to best action so probability sums to 1
 
@@ -238,11 +249,8 @@ class LudoPlayerQLearning:
 
             Action_probabilities = np.zeros(num_actions, dtype = float)
 
-            # If same values in QTable choose random valid action 
-            if( np.equal.reduce( QTable[tmpTokenState] == QTable[tmpTokenState]) ):
-                best_action = random.choice(np.argwhere(valid_actions == True))
-            else:
-                best_action = np.argmax(QTable[tmpTokenState]) # Find index of action which gives highest QValue
+           
+            best_action = np.argmax(QTable[tmpTokenState]) # Find index of action which gives highest QValue
 
             Action_probabilities[best_action] += 1.0
             return Action_probabilities
@@ -260,7 +268,7 @@ class LudoPlayerQLearning:
         tokenState = self.__getTokenState(state, 0)
         
         # Creates entry if current state does not exists
-        self.__updateQTable(tokenState, np.array([0, 0, 0, 0]))
+        self.__updateQTable(tokenState, np.array([0.0, 0.0, 0.0, 0.0]))
 
         # Get probabilites based on initialized policy (chosenPolicy)
         policy = self.policies(self.__QTable, self.__epsilon, state, next_states) # returns a policy function
@@ -270,42 +278,26 @@ class LudoPlayerQLearning:
         action = np.random.choice( LudoPlayerQLearning.actions, p=actionProbability )
 
         # Find next state based on action and updates Q-table. 
-        # DEFINE A FUNCTION WHICH GIVES REWARDS BASED ON THE NEXT STATE #
         next_states_based_action = next_states[action] 
         nextTokenState = self.__getTokenState(next_states_based_action, 0) # getTokenState handles that it is state[0] that is current player
+
         reward = self.__calc_reward(state, next_states_based_action)
         self.total_reward += reward
+
         # Creates entry if nextTokenState does not exists
-        self.__updateQTable(nextTokenState, np.array([0, 0, 0, 0]))
+        self.__updateQTable(nextTokenState, np.array([0.0, 0.0, 0.0, 0.0]))
 
         # Update based on TD Update
-        # If same values in QTable choose random valid action 
-        
-        if( np.equal.reduce( self.__QTable[str(nextTokenState)] == self.__QTable[str(nextTokenState)]) ):
-            best_next_action = np.random.choice(LudoPlayerQLearning.actions)
-        else:
-            best_next_action = np.argmax(self.__QTable[str(nextTokenState)])     
-
-        #print(self.__QTable[str(nextTokenState)])
-        #print("best_next_action", best_next_action)
-
-        td_target = reward + self.__discount_factor * self.__QTable[str(nextTokenState)][best_next_action] 
+        td_target = reward + self.__discount_factor * np.max(self.__QTable[str(nextTokenState)])
         td_delta = td_target - self.__QTable[str(tokenState)][action] 
         update_val = self.__alpha * td_delta 
-        Q_val_update = np.array([0, 0, 0, 0])
-        np.add.at(Q_val_update, action, update_val)
 
-        self.__updateQTable(tokenState, Q_val_update)
+        self.__QTable[str(tokenState)][action] += update_val
 
         # print("n",nextTokenState)
         #print("r",reward)
 
         return action
-
-
-
-
-
 
     def play(self, state, dice_roll, next_states):
         action = self.QLearning(state, next_states)

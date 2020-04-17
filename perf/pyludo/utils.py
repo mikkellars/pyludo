@@ -97,5 +97,12 @@ def is_stacked(state, player_num):
 
 def is_on_opponent_globe(state, player_num):
     player = state[player_num]
-    s = np.logical_or(player == 14, player == 27, player == 40)
+
+    s = []
+    for i, token in enumerate(player):
+        if token == 14 or token == 27 or token == 40:
+            s.append(1)
+        else:
+            s.append(0)
+
     return s

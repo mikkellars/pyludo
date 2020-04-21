@@ -99,10 +99,10 @@ def is_on_opponent_globe(state, player_num):
     player = state[player_num]
 
     s = []
-    for i, token in enumerate(player):
+    for token in player:
         if token == 14 or token == 27 or token == 40:
-            s.append(1)
+            s.append(True)
         else:
-            s.append(0)
+            s.append(False)
 
     return s

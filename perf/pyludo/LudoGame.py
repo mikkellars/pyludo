@@ -184,7 +184,7 @@ class LudoGame:
             if rel_next_states[token_id] is False:
                 logging.warning("Player chose invalid move. Choosing first valid move.")
                 token_id = np.argwhere(np.array(rel_next_states) != False)[0][0]
-            self.state = rel_next_states[token_id].get_state_relative_to_player(1)  # set relative to next playe
+            self.state = rel_next_states[token_id].get_state_relative_to_player(1)  # set relative to next player
         else:
             self.state = self.state.get_state_relative_to_player(1)
 

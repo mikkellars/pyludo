@@ -3,7 +3,8 @@ import time
 import numpy as np
 import sys
 
-from perf.pyludo import LudoGame
+from tqdm import tqdm
+from perf.pyludo import LudoGame, LudoState
 from perf.pyludo.StandardLudoPlayers import LudoPlayerRandom
 from LudoPlayerQLearning import LudoPlayerQLearning
 from PlotStatistics import PlotStatistics
@@ -81,26 +82,29 @@ for i, player in enumerate(players):
 
 score = [0, 0, 0, 0]
 
-n = 10000
+n = 100
 start_time = time.time()
-for i in range(n):
+for i in tqdm(range(n)):
     random.shuffle(players)
     ludoGame = LudoGame(players)
 
     winner = ludoGame.play_full_game()
     score[players[winner].id] += 1
-    if i%100==0:
-        print('Game ', i, ' done')
 
     for player in players: # Saving reward for QLearning player
-        if player.id == 3:
+        if type(player)==LudoPlayerQLearning:
             player.rewards.append(player.total_reward)
             player.total_reward = 0
 
 for player in players:
-    if player.id == 3:
+    if type(player)==LudoPlayerQLearning:
         player.saveQTable() # only one player that is Qlearning        
         player.saveReward()
+
+        # ##### TESTING #####
+        # state = LudoState()
+        # state.state = np.array([[46, -1, -1, -1]])
+        # player.testTokenState(state)
 
 duration = time.time() - start_time
 
@@ -110,5 +114,5 @@ print('win distribution percentage', (score/np.sum(score))*100)
 print('games per second:', n / duration)
 
 Plot = PlotStatistics()
-Plot.plotReward(pathToCSV='Reward_e-0.1_d-0.5_a-0.1.csv', numMovAvg=100)
+Plot.plotReward(pathToCSV='Reward_e-0.1_d-0.5_a-0.1.csv', numMovAvg=10)
 # Plot.plotMultiple(pathToFolder="Param_optimization", numMovAvg=1000)

@@ -82,7 +82,7 @@ for i, player in enumerate(players):
 
 score = [0, 0, 0, 0]
 
-n = 100
+n = 10000
 start_time = time.time()
 for i in tqdm(range(n)):
     random.shuffle(players)

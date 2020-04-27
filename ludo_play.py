@@ -74,45 +74,45 @@ import multiprocessing
 ###                                                              SINGLE GAME TEST                                                                ###
 ####################################################################################################################################################
 
-players = [LudoPlayerRandom() for _ in range(3)]
-players.append(LudoPlayerQLearning("epsilon greedy", QtableName='QTable', RewardName='Reward', epsilon=0.1, discount_factor=0.5, learning_rate=0.1))
-for i, player in enumerate(players):
-    player.id = i # selv tildele atributter uden defineret i klassen
+# players = [LudoPlayerRandom() for _ in range(3)]
+# players.append(LudoPlayerQLearning("epsilon greedy", QtableName='QTable', RewardName='Reward', epsilon=0.1, discount_factor=0.5, learning_rate=0.1))
+# for i, player in enumerate(players):
+#     player.id = i # selv tildele atributter uden defineret i klassen
 
 
-score = [0, 0, 0, 0]
+# score = [0, 0, 0, 0]
 
-n = 100
-start_time = time.time()
-for i in tqdm(range(n)):
-    random.shuffle(players)
-    ludoGame = LudoGame(players)
+# n = 10000
+# start_time = time.time()
+# for i in tqdm(range(n)):
+#     random.shuffle(players)
+#     ludoGame = LudoGame(players)
 
-    winner = ludoGame.play_full_game()
-    score[players[winner].id] += 1
+#     winner = ludoGame.play_full_game()
+#     score[players[winner].id] += 1
 
-    for player in players: # Saving reward for QLearning player
-        if type(player)==LudoPlayerQLearning:
-            player.rewards.append(player.total_reward)
-            player.total_reward = 0
+#     for player in players: # Saving reward for QLearning player
+#         if type(player)==LudoPlayerQLearning:
+#             player.rewards.append(player.total_reward)
+#             player.total_reward = 0
 
-for player in players:
-    if type(player)==LudoPlayerQLearning:
-        player.saveQTable() # only one player that is Qlearning        
-        player.saveReward()
+# for player in players:
+#     if type(player)==LudoPlayerQLearning:
+#         player.saveQTable() # only one player that is Qlearning        
+#         player.saveReward()
 
-        # ##### TESTING #####
-        # state = LudoState()
-        # state.state = np.array([[46, -1, -1, -1]])
-        # player.testTokenState(state)
+#         # ##### TESTING #####
+#         # state = LudoState()
+#         # state.state = np.array([[46, -1, -1, -1]])
+#         # player.testTokenState(state)
 
-duration = time.time() - start_time
+# duration = time.time() - start_time
 
-print('win distribution:', score)
+# print('win distribution:', score)
 
-print('win distribution percentage', (score/np.sum(score))*100)
-print('games per second:', n / duration)
+# print('win distribution percentage', (score/np.sum(score))*100)
+# print('games per second:', n / duration)
 
 Plot = PlotStatistics()
-Plot.plotReward(pathToCSV='Reward_e-0.1_d-0.5_a-0.1.csv', numMovAvg=10)
+Plot.plotReward(pathToCSV='Reward_e-0.1_d-0.5_a-0.1.csv', numMovAvg=1000)
 # Plot.plotMultiple(pathToFolder="Param_optimization", numMovAvg=1000)

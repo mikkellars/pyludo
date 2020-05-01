@@ -26,7 +26,7 @@ class LudoPlayerQLearning:
     # Rewards
     r_normal = 0
     r_safe = 0
-    r_got_vulnerable = 0
+    r_got_vulnerable = -1
     r_knock_home = 1
     r_suicide = 0
     r_star_jump = 0
@@ -251,15 +251,60 @@ class LudoPlayerQLearning:
         curPlayerState, curPlayerNextState = playerTokenTransition[0]
 
         reward += self.__reward_dict[curPlayerState, curPlayerNextState]
+    
 
-        # Knocked opponent token home
-        for idx, opponentTokenState in enumerate(playerTokenTransition):
-            if idx == 0: # not an opponent
-                continue
-            tmp_state, tmp_nextState = opponentTokenState
-            if (tmp_state != tmp_nextState) and (tmp_nextState == LudoPlayerQLearning.homed):
-                reward += LudoPlayerQLearning.r_knock_home
-                break
+        #### OLD REWARD SYSTEM #####
+
+        # tokenStatePlayers = [self.__getTokenState(state, player_id) for player_id in range(0,4)]
+        # nextTokenStatePlayers = [self.__getTokenState(next_states_based_action, player_id) for player_id in range(0,4)]
+
+        # diff_next_states = self.__get_diff_next_states(tokenStatePlayers, nextTokenStatePlayers)
+        # diff_next_state = diff_next_states[0] # current player
+
+        # # Can sometimes be more than one elemtents, but only when transitioning to stacked state or normal or both or hitting more six in a row. Thus setting to size 1
+        # if (len(diff_next_state) > 1):
+        #     if (np.equal.reduce(diff_next_state == LudoPlayerQLearning.stacked)): # more than one stacked
+        #         diff_next_state = np.array([LudoPlayerQLearning.stacked])
+        #     elif( np.equal.reduce(diff_next_state == LudoPlayerQLearning.normal)): # more than one normal
+        #         diff_next_state = np.array([LudoPlayerQLearning.normal])
+        #     elif( len(diff_next_state[diff_next_state == LudoPlayerQLearning.stacked]) >= 1): # one normal and one stacked
+        #         diff_next_state = np.array([LudoPlayerQLearning.stacked])
+        #     elif( len(diff_next_state[diff_next_state == LudoPlayerQLearning.globe]) >= 1): # one/two normal and one globe
+        #         diff_next_state = np.array([LudoPlayerQLearning.globe])
+        #     elif( len(diff_next_state[diff_next_state == LudoPlayerQLearning.vulnerable]) >= 1): # one/two normal and one globe (hitting six more than one time)
+        #         diff_next_state = np.array([LudoPlayerQLearning.vulnerable])
+        #     elif( len(diff_next_state[diff_next_state == LudoPlayerQLearning.globe_home]) >= 1): # one/two normal and one globe home (hitting six more than one time)
+        #         diff_next_state = np.array([LudoPlayerQLearning.globe_home])
+        #     elif( len(diff_next_state[diff_next_state == LudoPlayerQLearning.goal]) >= 1): # one/two normal and one goal (hitting six more than one time)
+        #         diff_next_state = np.array([LudoPlayerQLearning.goal])
+        # # elif(len(diff_next_state) == 0 and np.array(state.state[0]).any() == LudoPlayerQLearning.end_game_area): # If moving token in end game area but not into goal
+        # #     reward += LudoPlayerQLearning.moved_end_game_token
+        # # else: # If no new state negative reward
+        # #     reward -= 1
+
+
+
+        # if (nextTokenStatePlayers[0] == np.array([LudoPlayerQLearning.goal, LudoPlayerQLearning.goal, LudoPlayerQLearning.goal, LudoPlayerQLearning.goal])).all():
+        #     reward += LudoPlayerQLearning.r_win
+        # elif(diff_next_state == LudoPlayerQLearning.goal):
+        #     reward += LudoPlayerQLearning.r_one_token_win
+        # elif(diff_next_state == LudoPlayerQLearning.homed):
+        #     reward += LudoPlayerQLearning.r_suicide
+        # elif(diff_next_state == LudoPlayerQLearning.globe or diff_next_state == LudoPlayerQLearning.stacked):
+        #     reward += LudoPlayerQLearning.r_safe
+        # # elif(diff_next_state == LudoPlayerQLearning.star):
+        # #     reward += LudoPlayerQLearning.star_jump
+        # elif(diff_next_state == LudoPlayerQLearning.vulnerable or diff_next_state == LudoPlayerQLearning.globe_home):
+        #     reward += LudoPlayerQLearning.r_got_vulnerable
+        # # elif(diff_next_state == LudoPlayerQLearning.end_game_area):
+        # #     reward += LudoPlayerQLearning.r_end_game_safe
+
+        # # Got one player out of home
+        # # if (diff_next_state == LudoPlayerQLearning.normal and )
+
+        # # Checking for knocking home an opponent player
+        # if self.__did_knock_home(diff_next_states):
+        #     reward += LudoPlayerQLearning.r_knock_home
 
         return reward
 

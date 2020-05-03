@@ -14,6 +14,9 @@ from LudoPlayerGA import simple_GA_player
 from LudoPlayerQLearningSimple import LudoPlayerQLearningSimple
 
 
+
+
+
 # def play_with_on_QLearning_thread(num_games, epsilon, discount_factor, learning_rate):
 #     players = [LudoPlayerRandom() for _ in range(3)]
 #     players.append(LudoPlayerQLearning("epsilon greedy", QtableName='Param_optimization/QTable', RewardName='Param_optimization/Reward', epsilon=epsilon, discount_factor=discount_factor, learning_rate=learning_rate))
@@ -152,42 +155,48 @@ from LudoPlayerQLearningSimple import LudoPlayerQLearningSimple
 
 ######################## SIMPLE QLEARNING PLAYER ##################################
 
-players = [LudoPlayerRandom() for _ in range(3)]
-players.append(LudoPlayerQLearningSimple("epsilon greedy", RewardName='Reward_simple.csv', epsilon=0.1, discount_factor=0.5, learning_rate=0.1))
-for i, player in enumerate(players):
-    player.id = i # selv tildele atributter uden defineret i klassen
 
 
-score = [0, 0, 0, 0]
+def main():
+    players = []
+    players = [LudoPlayerRandom() for _ in range(3)]
+    t1 = LudoPlayerQLearningSimple("epsilon greedy", QtableName='testQTable_simple.csv', RewardName='testReward_simple.csv', epsilon=0.1, discount_factor=0.5, learning_rate=0.1)
+    players.append(t1)
+    for i, player in enumerate(players):
+        player.id = i # selv tildele atributter uden defineret i klassen
 
-<<<<<<< HEAD
-n = 5000
-=======
-n = 3000
->>>>>>> simple-q-learnig
-start_time = time.time()
-tqdm_1 = tqdm(range(n), ascii=True)
-for i in tqdm_1:
-    tqdm_1.set_description_str(f"win rates {np.around(score/np.sum(score),decimals=2)*100}") 
-    random.shuffle(players)
-    ludoGame = LudoGame(players)
+    score = [0, 0, 0, 0]
 
-    winner = ludoGame.play_full_game()
-    score[players[winner].id] += 1
+    n = 25000
+    start_time = time.time()
+    tqdm_1 = tqdm(range(n), ascii=True)
+    for i in tqdm_1:
+        tqdm_1.set_description_str(f"win rates {np.around(score/np.sum(score),decimals=2)*100}") 
+        random.shuffle(players)
+        ludoGame = LudoGame(players)
 
-    for player in players: # Saving reward for QLearning player
+        winner = ludoGame.play_full_game()
+        score[players[winner].id] += 1
+
+        for player in players: # Saving reward for QLearning player
+
+            if type(player)==LudoPlayerQLearningSimple:
+                player.append_reward()
+                player.reset_upd_val()
+                # player.rewards.append(player.total_reward)
+                # player.total_reward = 0
+
+    for player in players:
         if type(player)==LudoPlayerQLearningSimple:
-            player.rewards.append(player.total_reward)
-            player.total_reward = 0
+            player.saveQTable() 
+            player.saveReward()
 
-for player in players:
-    if type(player)==LudoPlayerQLearningSimple:
-        # player.saveQTable() # Not implemented yet  
-        player.saveReward()
+    duration = time.time() - start_time
 
-duration = time.time() - start_time
+    print('win distribution:', score)
 
-print('win distribution:', score)
+    Plot = PlotStatistics()
+    Plot.plotReward(pathToCSV='testReward_simple.csv', numMovAvg=1000)
 
-Plot = PlotStatistics()
-Plot.plotReward(pathToCSV='Reward_simple.csv', numMovAvg=1000)
+if __name__ == "__main__":
+    main()

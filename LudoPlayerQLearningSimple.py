@@ -20,7 +20,7 @@ class LudoPlayerQLearningSimple:
     r_send_self_home = -1
     r_move_token = 0.5
 
-    def __init__(self, chosenPolicy, RewardName, epsilon, discount_factor, learning_rate):
+    def __init__(self, chosenPolicy, QtableName, RewardName, epsilon, discount_factor, learning_rate):
         self.__chosenPolicy = chosenPolicy
         
         # Parameters
@@ -28,27 +28,60 @@ class LudoPlayerQLearningSimple:
         self.__discount_factor = discount_factor
         self.__alpha = learning_rate
 
-        # Data logging rewards
+        # Data logging rewards and QTable
         self.Reward_save_name = RewardName
-        self.total_reward = 0.0
-        self.rewards = [] 
+        self.Qtable_save_name = QtableName
+        self.__total_reward = 0.0
+        self.__all_rewards = [] 
+        self.__QTable = self.readQTable()#np.zeros((2**4, 5)) # State space is 2^4 = 16 with 5 actions-value, [moved_out, into_goal, send_opp_home, send_self_home, move_token] 
 
         # Core rewards
         self.__rewards = np.array([LudoPlayerQLearningSimple.r_moved_out, LudoPlayerQLearningSimple.r_into_goal, LudoPlayerQLearningSimple.r_send_opp_home, LudoPlayerQLearningSimple.r_send_self_home, LudoPlayerQLearningSimple.r_move_token])
         self.__pre_reward = 0
 
-        self.__val_tok_mov = np.empty((4, 4)) # containts which token can make an valid action
-        self.__reduced_state = np.empty(4) # contains valid actions e.g. move out of spawm
+        self.__val_tok_mov = np.zeros((4, 4)) # containts which token can make an valid action
+        self.__reduced_state = np.zeros(4) # contains valid actions e.g. move out of spawm
         self.__next_state_based_action = None
         self.__prev_state_idx = None
-        self.__prev_tok_to_mov = None
+        self.__prev_action = None        
 
-        self.__QTable = np.empty((2**4, 5)) # State space is 2^4 = 16 with 5 actions-value, [moved_out, into_goal, send_opp_home, send_self_home, move_token] 
+        ##### TESTING PARAMETERS #####
+        self.ite = 0
+        self.ite_upd = 0
+            
+    def append_reward(self):
+        self.__all_rewards.append(self.__total_reward)
+        self.__total_reward = 0
         
+    def saveQTable(self):
+        csv_writer = csv.writer(open(self.Qtable_save_name, "w", newline=''))
+       
+        for state, qval in enumerate(self.__QTable):
+            state = bin(state)
+            csv_writer.writerow((state, qval))
+        print("QTable saved succefully")
+
+    def readQTable(self):
+        tmpQTable = np.zeros((2**4, 5))
+        if os.path.isfile(self.Qtable_save_name):
+            read = csv.reader(open(self.Qtable_save_name))
+            i = 0
+            for state, row in enumerate(read):
+                i = i + 1
+                state, QVal = row
+                QVal = np.fromstring(QVal[1:-1], sep=' ')
+                state = int(state,2)
+                tmpQTable[state] = np.array(QVal)
+            print("QTable read succefully. Found " + str(i) + " states")
+        else:
+            print ("QTable file not found, making a new")
+        
+        return tmpQTable
+
     def saveReward(self):
         with open(self.Reward_save_name, 'a', newline='') as csv_file:
             csv_writer = csv.writer(csv_file)
-            for reward in self.rewards:
+            for reward in self.__all_rewards:
                 csv_writer.writerow([reward])
 
     def __from_np_arr_2_binary(self, np_arr):
@@ -82,11 +115,11 @@ class LudoPlayerQLearningSimple:
         if next_state == False:
             return False
 
-        current_pos_token = state[0][token_id]
-        next_pos_token = next_state[0][token_id]
+        current_pos_token = state.state[0][token_id]
+        next_pos_token = next_state.state[0][token_id]
 
-        current_opponent_states = state[1:]
-        next_opponent_states = next_state[1:]
+        current_opponent_states = state.state[1:]
+        next_opponent_states = next_state.state[1:]
 
         moved_out = (current_pos_token == -1) and (next_pos_token == 1)
         into_goal = (next_pos_token == 99)
@@ -107,7 +140,6 @@ class LudoPlayerQLearningSimple:
         for token_id in range(4):
             val_token_mov[token_id] = self.__valid_token_moves(state, next_states[token_id], token_id)
 
-       # print(val_token_mov)
         self.__val_tok_mov = val_token_mov
         self.__reduced_state = np.logical_or.reduce((val_token_mov[0,:],val_token_mov[1,:],val_token_mov[2,:],val_token_mov[3,:]))
 
@@ -131,6 +163,21 @@ class LudoPlayerQLearningSimple:
             return np.random.choice(valid_tokens)
         else:
             return valid_tokens
+
+    def __calc_cum_reward(self, token_to_move, next_states):
+        min_val = -1*4
+        max_val = 99*4
+
+        next_state_sum = np.sum(next_states[token_to_move][0])
+        
+        # Get the opponent who is most ahead by finding sum of the state
+        opponents_next_state_sum = np.sum(next_states[token_to_move][1:])
+        oppenent_ahead = np.max(opponents_next_state_sum)
+
+        diff_state_sum = next_state_sum - oppenent_ahead
+
+        return (diff_state_sum - min_val)/(max_val - min_val)
+
 
     def policies(self, QTable, epsilon, state_idx): # Inspiration from https://www.geeksforgeeks.org/q-learning-in-python/?fbclid=IwAR1UXR88IuJBhhTakjxNq_gcf3nCmJB0puuoA46J8mZnEan_qx9hhoFzhK8
         """ 
@@ -195,35 +242,62 @@ class LudoPlayerQLearningSimple:
 
         # Choose action based on the probability distribution
         action = np.random.choice( LudoPlayerQLearningSimple.actions, p=actionProbability )
-        
+        token_to_move = self.__action_to_token(action, next_states)
+
         # Gives reward
         reward = self.__rewards[int(action)]
-        self.total_reward += reward
+        self.__total_reward += reward
+
+        # Testing cum reward
+        # reward = self.__calc_cum_reward(token_to_move, next_states)
+        # self.__total_reward += reward
+
+        # print("_____________")
+        # print(self.ite)
+        # print(self.ite_upd)
+        # print(self.__next_state_based_action)
+        # print(state[0])
+        self.ite += 1
+
+
 
         # Update based on TD Update
         # Because of this reduced state representation can first update state after next round. 
         # Find next state based on action. 
-        token_to_move = self.__action_to_token(action, next_states)
-        if self.__next_state_based_action is None:
+        if self.__next_state_based_action is None or self.ite_upd == 0:
             self.__prev_state_idx = state_idx
-            self.__prev_tok_to_mov = token_to_move
+            self.__prev_action = action
             self.__pre_reward = reward
-            self.__next_state_based_action = next_states[token_to_move][0] 
-        elif self.__next_state_based_action == state.state[0]:
+            self.__next_state_based_action = next_states[token_to_move]
+
+            self.ite_upd += 1
+
+        elif self.__next_state_based_action == state[0] or self.ite_upd > 0:        
+            # print("action",action)
+            # print("state", state_idx)
             next_next_state = self.__get_token_state(state, next_states)
             state_idx = self.__from_np_arr_2_binary(next_next_state)
             td_target = self.__pre_reward + self.__discount_factor * np.max(self.__QTable[state_idx])
-            td_delta = td_target - self.__QTable[self.__prev_state_idx][self.__prev_tok_to_mov]
+            td_delta = td_target - self.__QTable[self.__prev_state_idx][self.__prev_action]
             update_val = self.__alpha * td_delta 
-            self.__QTable[self.__prev_state_idx][self.__prev_tok_to_mov] += update_val
+            # print("up val", update_val)
+            self.__QTable[self.__prev_state_idx][self.__prev_action] += update_val
             # Updates to use for next_next_state
-            self.__state_idx = state_idx
-            self.__prev_tok_to_mov = token_to_move
+            self.__prev_state_idx = state_idx
+            self.__prev_action = action
             self.__pre_reward = reward
-            self.__next_state_based_action = next_states[token_to_move][0] 
+            self.__next_state_based_action = next_states[token_to_move] 
+
+            self.ite_upd += 1
+
 
         return token_to_move
 
+    #### TEST ###
+    def reset_upd_val(self):
+        self.ite_upd = 0
+        self.ite = 0
+
     def play(self, state, dice_roll, next_states):
-        action = self.QLearning(state, next_states)
-        return action # return number token want to move
+        token_to_move = self.QLearning(state, next_states)
+        return token_to_move # return number token want to move

@@ -16,6 +16,7 @@ class PlotStatistics:
     def plotReward(self, pathToCSV, numMovAvg):
         data = pd.read_csv(pathToCSV)
         data = data.rolling(window=numMovAvg).mean()
+
         plt.plot(data)
 
         plt.title('Game Reward over Time')

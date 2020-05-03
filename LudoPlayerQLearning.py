@@ -147,6 +147,10 @@ class LudoPlayerQLearning:
 
         return reward_dict
 
+    def append_reward(self):
+        self.rewards.append(self.total_reward)
+        self.total_reward = 0
+
     # MAKE Q-TABLE #
 
     def __updateQTable(self, tokenState, qValue):

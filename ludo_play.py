@@ -88,7 +88,7 @@ from LudoPlayerQLearningSimple import LudoPlayerQLearningSimple
 
 # score = [0, 0, 0, 0]
 
-# n = 5000
+# n = 20000
 # start_time = time.time()
 # tqdm_1 = tqdm(range(n), ascii=True)
 # for i in tqdm_1:
@@ -108,10 +108,6 @@ from LudoPlayerQLearningSimple import LudoPlayerQLearningSimple
 #         player.saveQTable() # only one player that is Qlearning        
 #         player.saveReward()
 
-#         # ##### TESTING #####
-#         # state = LudoState()
-#         # state.state = np.array([[46, -1, -1, -1]])
-#         # player.testTokenState(state)
 
 # duration = time.time() - start_time
 
@@ -154,48 +150,48 @@ from LudoPlayerQLearningSimple import LudoPlayerQLearningSimple
 
 ######################## SIMPLE QLEARNING PLAYER ##################################
 
-def play_with_on_QLearning_thread(num_games, epsilon, discount_factor, learning_rate):
-    players = [LudoPlayerRandom() for _ in range(3)]
-    players.append(LudoPlayerQLearningSimple("epsilon greedy", QtableName='Param_optimization/QTable_simple', RewardName='Param_optimization/Reward_simple', epsilon=epsilon, discount_factor=discount_factor, learning_rate=learning_rate))
-    for i, player in enumerate(players):
-        player.id = i # selv tildele atributter uden defineret i klassen
+# def play_with_on_QLearning_thread(num_games, epsilon, discount_factor, learning_rate):
+#     players = [LudoPlayerRandom() for _ in range(3)]
+#     players.append(LudoPlayerQLearningSimple("epsilon greedy", QtableName='Param_optimization/QTable_simple', RewardName='Param_optimization/Reward_simple', epsilon=epsilon, discount_factor=discount_factor, learning_rate=learning_rate))
+#     for i, player in enumerate(players):
+#         player.id = i # selv tildele atributter uden defineret i klassen
 
 
-    score = [0, 0, 0, 0]
+#     score = [0, 0, 0, 0]
 
-    n = num_games
+#     n = num_games
 
 
-    for i in range(n):
-        random.shuffle(players)
-        ludoGame = LudoGame(players)
+#     for i in range(n):
+#         random.shuffle(players)
+#         ludoGame = LudoGame(players)
         
-        for player in players: # Saving reward for QLearning player
-            if type(player)==LudoPlayerQLearningSimple:
-                player.append_reward()
-                player.reset_upd_val()
+#         for player in players: # Saving reward for QLearning player
+#             if type(player)==LudoPlayerQLearningSimple:
+#                 player.append_reward()
+#                 player.reset_upd_val()
 
-        winner = ludoGame.play_full_game()
-        score[players[winner].id] += 1
-        if i%2500 == 0:
-            print('Game ', i, ' done')
+#         winner = ludoGame.play_full_game()
+#         score[players[winner].id] += 1
+#         if i%2500 == 0:
+#             print('Game ', i, ' done')
 
-    for player in players:
-        if type(player)==LudoPlayerQLearningSimple:
-            player.saveQTable() 
-            player.saveReward()   
+#     for player in players:
+#         if type(player)==LudoPlayerQLearningSimple:
+#             player.saveQTable() 
+#             player.saveReward()   
 
 def main():
     players = []
     players = [LudoPlayerRandom() for _ in range(3)]
-    t1 = LudoPlayerQLearningSimple("epsilon greedy", QtableName='QTable_simple_cum', RewardName='Reward_simple_cum', epsilon=0.1, discount_factor=0.5, learning_rate=0.1)
+    t1 = LudoPlayerQLearningSimple("epsilon greedy", QtableName='R1_QTable_simple', RewardName='R1_Reward_simple', epsilon=0.1, discount_factor=0.5, learning_rate=0.1)
     players.append(t1)
     for i, player in enumerate(players):
         player.id = i # selv tildele atributter uden defineret i klassen
 
     score = [0, 0, 0, 0]
 
-    n = 30000
+    n = 10000
     start_time = time.time()
     tqdm_1 = tqdm(range(n), ascii=True)
     for i in tqdm_1:
@@ -207,7 +203,6 @@ def main():
         score[players[winner].id] += 1
 
         for player in players: # Saving reward for QLearning player
-
             if type(player)==LudoPlayerQLearningSimple:
                 player.append_reward()
                 player.reset_upd_val()
@@ -224,7 +219,7 @@ def main():
     print('win distribution:', score)
 
     Plot = PlotStatistics()
-    Plot.plotReward(pathToCSV='Reward_simple_cum_e-0.1_d-0.5_a-0.1.csv', numMovAvg=1000)
+    Plot.plotReward(pathToCSV='R1_Reward_simple_e-0.1_d-0.5_a-0.1.csv', numMovAvg=1000)
 
 
     # starttime = time.time()
@@ -249,8 +244,8 @@ def main():
 
     # print('That took {} seconds'.format(time.time() - starttime))
     
-    Plot = PlotStatistics()
-    Plot.plotMultiple(pathToFolder="Param_optimization", numMovAvg=1000)
+    # Plot = PlotStatistics()
+    # Plot.plotMultiple(pathToFolder="Param_optimization", numMovAvg=1000)
 
 if __name__ == "__main__":
     main()

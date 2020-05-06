@@ -147,6 +147,20 @@ class LudoPlayerQLearning:
 
         return reward_dict
 
+    def __calc_cum_reward(self, token_to_move, next_states):
+        min_val = -1*4
+        max_val = 99*4
+
+        next_state_sum = np.sum(next_states[token_to_move][0])
+        
+        # Get the opponent who is most ahead by finding sum of the state
+        opponents_next_state_sum = np.sum(next_states[token_to_move][1:])
+        oppenent_ahead = np.max(opponents_next_state_sum)
+
+        diff_state_sum = next_state_sum - oppenent_ahead
+
+        return (diff_state_sum - min_val)/(max_val - min_val)
+
     def append_reward(self):
         self.rewards.append(self.total_reward)
         self.total_reward = 0
@@ -400,7 +414,12 @@ class LudoPlayerQLearning:
         next_states_based_action = next_states[action] 
         nextTokenStates = [self.__getTokenState(next_states_based_action, player_id) for player_id in range(0,4)]
 
-        reward = self.__calc_reward(state, next_states_based_action, tokenStates, nextTokenStates)
+        # Static reward
+        # reward = self.__calc_reward(state, next_states_based_action, tokenStates, nextTokenStates)
+        # self.total_reward += reward
+
+        # Cummulative reward
+        reward = self.__calc_cum_reward(action, next_states)
         self.total_reward += reward
 
         # Creates entry if nextTokenState does not exists

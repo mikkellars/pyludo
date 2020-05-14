@@ -68,7 +68,8 @@ class simple_GA_player(GA_player_base):
         """
         Finds valid moves for a token and
         weights them with chromosome and return
-        a sum of that
+        a sum of that.
+        Inspiration from https://github.com/RasmusHaugaard/pyludo-ai/blob/master/GAPlayers.py
         """
         if next_state == False:
             return False

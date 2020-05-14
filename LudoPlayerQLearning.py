@@ -89,14 +89,14 @@ class LudoPlayerQLearning:
 
         # On star
         tmp = [star_jump(token) > 0 for token in playerState]
-        #tokenState[tmp] = LudoPlayerQLearning.star
+        tokenState[tmp] = LudoPlayerQLearning.star
 
         # On other players home globe
         tmp = is_on_opponent_globe(np.array(state.state), player_num)
         tokenState[tmp] = LudoPlayerQLearning.globe_home
 
         # Token end game last 5 space into goal
-        #tokenState[playerState >= 52] = LudoPlayerQLearning.end_game_area
+        tokenState[playerState >= 52] = LudoPlayerQLearning.end_game_area
 
         # Token inside goal
         tokenState[playerState == 99] = LudoPlayerQLearning.goal
@@ -111,19 +111,19 @@ class LudoPlayerQLearning:
         """
 
         reward_dict = dict()
-        states = range(LudoPlayerQLearning.homed, LudoPlayerQLearning.end_game_area)
+        states = range(LudoPlayerQLearning.homed, LudoPlayerQLearning.end_game_area + 1)
 
         # MULTIPLE STATE AND NEXT STATE REWARD ASSIGNMENT
         for curState in states:
             for nextState in states:
                 # One token goal
-                if nextState is LudoPlayerQLearning.goal:
+                if (curState is not LudoPlayerQLearning.goal) and (nextState is LudoPlayerQLearning.goal):
                     reward_dict[curState, nextState] = LudoPlayerQLearning.r_one_token_win
                 # Token knocked home / suicide
-                elif nextState is LudoPlayerQLearning.homed:
+                elif (curState is not LudoPlayerQLearning.homed) and (nextState is LudoPlayerQLearning.homed):
                     reward_dict[curState, nextState] = LudoPlayerQLearning.r_suicide
                 # Token safe
-                elif (nextState is LudoPlayerQLearning.stacked):
+                elif(curState is not LudoPlayerQLearning.stacked) and (nextState is LudoPlayerQLearning.stacked):
                     reward_dict[curState, nextState] = LudoPlayerQLearning.r_safe
                 # Token safe
                 elif (nextState is LudoPlayerQLearning.globe) and (curState is not LudoPlayerQLearning.homed):
@@ -137,6 +137,8 @@ class LudoPlayerQLearning:
                 # Moved to normal state
                 elif (nextState is LudoPlayerQLearning.normal):
                     reward_dict[curState, nextState] = LudoPlayerQLearning.r_normal
+                else:
+                    reward_dict[curState, nextState] = 0
 
 
         # STATICS ONE STATE AND ONE NEXT STATE
@@ -158,6 +160,24 @@ class LudoPlayerQLearning:
         oppenent_ahead = np.max(opponents_next_state_sum)
 
         diff_state_sum = next_state_sum - oppenent_ahead
+
+        return (diff_state_sum - min_val)/(max_val - min_val)
+
+    def __calc_cum_mean_reward(self, token_to_move, next_states):
+        """
+        Calculates normalized cumulative reward based on
+        all the opponents tokens meaned
+        """
+        min_val = -1
+        max_val = 99
+
+        next_state_sum = np.mean(np.sum(next_states[token_to_move][0]))
+        
+        # Get the opponent who is most ahead by finding sum of the state
+        opponents_next_state_sum = np.sum(next_states[token_to_move][1:])
+        opponents_mean = np.mean(np.mean(opponents_next_state_sum))
+
+        diff_state_sum = next_state_sum - opponents_mean
 
         return (diff_state_sum - min_val)/(max_val - min_val)
 
@@ -265,10 +285,10 @@ class LudoPlayerQLearning:
         if (nextTokenStates[0] == np.array([LudoPlayerQLearning.goal, LudoPlayerQLearning.goal, LudoPlayerQLearning.goal, LudoPlayerQLearning.goal])).all():
             return LudoPlayerQLearning.r_win
 
-        playerTokenTransition = [self.__changeTokenState(state, next_states_based_action, player_id, tokenStates, nextTokenStates) for player_id in range(0,4)]
-        curPlayerState, curPlayerNextState = playerTokenTransition[0]
-
-        reward += self.__reward_dict[curPlayerState, curPlayerNextState]
+        # playerTokenTransition = [self.__changeTokenState(state, next_states_based_action, player_id, tokenStates, nextTokenStates) for player_id in range(0,4)]
+        # curPlayerState, curPlayerNextState = playerTokenTransition[0]
+        #print("r",self.__reward_dict[curPlayerState, curPlayerNextState])
+        # reward = self.__reward_dict[curPlayerState, curPlayerNextState]
     
 
         #### OLD REWARD SYSTEM #####
@@ -383,6 +403,11 @@ class LudoPlayerQLearning:
             Action_probabilities = np.zeros(num_actions, dtype = float)
 
             best_action = np.argmax(QTable[tmpTokenState]) # Find index of action which gives highest QValue
+            i = 3
+            while not valid_actions[best_action]:
+                best_action = np.argsort(QTable[tmpTokenState])[i]
+                i -= 1
+
 
             Action_probabilities[best_action] += 1.0
             return Action_probabilities
@@ -415,12 +440,13 @@ class LudoPlayerQLearning:
         nextTokenStates = [self.__getTokenState(next_states_based_action, player_id) for player_id in range(0,4)]
 
         # Static reward
-        # reward = self.__calc_reward(state, next_states_based_action, tokenStates, nextTokenStates)
-        # self.total_reward += reward
+        reward = self.__calc_reward(state, next_states_based_action, tokenStates, nextTokenStates)
+        self.total_reward += reward
 
         # Cummulative reward
-        reward = self.__calc_cum_reward(action, next_states)
-        self.total_reward += reward
+        # reward = self.__calc_cum_reward(action, next_states)
+        #reward = self.__calc_cum_mean_reward(action, next_states)
+        # self.total_reward += reward
 
         # Creates entry if nextTokenState does not exists
         self.__updateQTable(nextTokenStates[0], np.array([0.0, 0.0, 0.0, 0.0]))

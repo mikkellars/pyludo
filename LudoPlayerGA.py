@@ -49,8 +49,9 @@ class GA_player_base():
 
 
 class simple_GA_player(GA_player_base):
-
+    name = "simple GA"
     def __init__(self, chromosome):
+        
         super(simple_GA_player, self).__init__(chromosome)
         
     def evaluate_actions(self, state, next_states):

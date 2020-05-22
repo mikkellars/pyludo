@@ -11,10 +11,11 @@ from LudoPlayerQLearningSimple import LudoPlayerQLearningSimple
 
 class basetournement():
 
-    def __init__(self, player_type, population_size:int, type_player):
+    def __init__(self, player_type, population_size:int, type_player, chromosomes_save_path):
         self.player_type = player_type
         self.population_size = population_size
         self.type = type_player
+        self.save_path = chromosomes_save_path
 
     def __save_chromosomes(self, file_name, chromosomes):
         with open(file_name, 'w', newline='') as csv_file:
@@ -33,7 +34,7 @@ class basetournement():
 
             # Saves chromosomes 3 times
             if (gen_idx == 0) or (gen_idx == generations_it//2) or (gen_idx == generations_it-1):
-                print("gen", gen_idx)
+                print("Saving chromosomes for generation: ", gen_idx)
                 tmp_chromosomes = []
                 for p in players:
                     tmp_chromosomes.append(p.chromosome)
@@ -41,7 +42,7 @@ class basetournement():
                 save_chromosomes.append(tmp_chromosomes)
 
         # Saving chromosomes for plotting
-        self.__save_chromosomes('chromosomes_plot.csv',save_chromosomes)
+        self.__save_chromosomes(self.save_path, save_chromosomes)
 
         # Getting the best for each tourmenent
         best_pop_id = np.argmax(scores,axis=1)

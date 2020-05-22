@@ -8,13 +8,14 @@ from perf.pyludo import LudoGame, LudoState
 from PlotStatistics import PlotStatistics
 import multiprocessing
 
-from LudoPlayerQLearningToken import LudoPlayerQLearningToken
 from perf.pyludo.StandardLudoPlayers import LudoPlayerRandom
-
+from LudoPlayerGA import simple_GA_player
+from LudoPlayerQLearningAction import LudoPlayerQLearningAction
 
 def play_with_on_QLearning_thread(num_games, epsilon, discount_factor, learning_rate):
     players = [LudoPlayerRandom() for _ in range(3)]
-    players.append(LudoPlayerQLearningToken("epsilon greedy", QtableName='Param_optimization/QTable', RewardName='Param_optimization/Reward', epsilon=epsilon, discount_factor=discount_factor, learning_rate=learning_rate))
+    param = [epsilon, discount_factor, learning_rate]
+    players.append(LudoPlayerQLearningAction(Parameters=param, chosenPolicy="greedy", QtableName='Qtable', RewardName='Reward'))
     for i, player in enumerate(players):
         player.id = i # selv tildele atributter uden defineret i klassen
 
@@ -29,7 +30,7 @@ def play_with_on_QLearning_thread(num_games, epsilon, discount_factor, learning_
         ludoGame = LudoGame(players)
         
         for player in players: # Saving reward for QLearning player
-            if type(player)==LudoPlayerQLearningToken:
+            if type(player)==LudoPlayerQLearningAction:
                 player.append_reward()
                 
         winner = ludoGame.play_full_game()
@@ -38,7 +39,7 @@ def play_with_on_QLearning_thread(num_games, epsilon, discount_factor, learning_
             print('Game ', i, ' done')
 
     for player in players:
-        if type(player)==LudoPlayerQLearningToken:
+        if type(player)==LudoPlayerQLearningAction:
             player.saveQTable() 
             player.saveReward()   
     
@@ -46,50 +47,45 @@ def play_with_on_QLearning_thread(num_games, epsilon, discount_factor, learning_
 
 
 def param_optimization():
-    starttime = time.time()
-    epsilons = [0.1, 0.05]
-    discount_factors = [0.9, 0.5]
-    learning_rate = [0.5, 0.25, 0.1, 0.05]
+    # starttime = time.time()
+    # epsilons = [0.1, 0.05]
+    # discount_factors = [0.9, 0.5]
+    # learning_rate = [0.5, 0.25, 0.1, 0.05]
 
-    combination = []
-    multiprocess = []
+    # combination = []
+    # multiprocess = []
 
-    for e in epsilons:
-        for d in discount_factors:
-            for l in learning_rate:
-                p = multiprocessing.Process(target=play_with_on_QLearning_thread, args=(10000, e, d, l))
-                multiprocess.append(p)
-                p.start()
+    # for e in epsilons:
+    #     for d in discount_factors:
+    #         for l in learning_rate:
+    #             p = multiprocessing.Process(target=play_with_on_QLearning_thread, args=(10000, e, d, l))
+    #             multiprocess.append(p)
+    #             p.start()
             
                 
-    for index, process in enumerate(multiprocess):
+    # for index, process in enumerate(multiprocess):
         
-        process.join()
+    #     process.join()
 
-    print('That took {} seconds'.format(time.time() - starttime))
+   # print('That took {} seconds'.format(time.time() - starttime))
     Plot = PlotStatistics()
     Plot.plotMultiple(pathToFolder="Param_optimization", numMovAvg=1000)
 
-def normal_training():
-    
+def normal_play():
+    players = []
     players = [LudoPlayerRandom() for _ in range(3)]
+      
+    epsilon = 0.05 #0.40463712 #0.05 #
+    discount_factor =  0.5 #0.14343606 #0.5 #
+    learning_rate = 0.25#0.10783296  #0.25 # 
+    parameters = [epsilon, discount_factor, learning_rate]
 
-    # GA optimized param
-    # e = 0.40463712
-    # d = 0.14343606
-    # a = 0.10783296
+    t1 = LudoPlayerQLearningAction(parameters, chosenPolicy="epsilon greedy", QtableName='Qlearning_action_logs/1QTable_action_r_win', RewardName='Qlearning_action_logs/1Reward_action_r_win')
+    players.append(t1)
+    for i, player in enumerate(players):
+        player.id = i # selv tildele atributter uden defineret i klassen
 
-    # Exhaustive search param
-    e = 0.05
-    d = 0.5
-    a = 0.25
-
-    # players.append(LudoPlayerQLearningToken("epsilon greedy", QtableName='Qlearning_token_logs/QTable_token_40000', RewardName='Qlearning_token_logs/Reward_token_40000', epsilon=e, discount_factor=d, learning_rate=a))
-    # for i, player in enumerate(players):
-    #     player.id = i # selv tildele atributter uden defineret i klassen
-
-
-    # score = [0, 0, 0, 0]
+    score = [0, 0, 0, 0]    
 
     # n = 40000
     # start_time = time.time()
@@ -103,28 +99,25 @@ def normal_training():
     #     score[players[winner].id] += 1
 
     #     for player in players: # Saving reward for QLearning player
-    #         if type(player)==LudoPlayerQLearningToken:
+    #         if type(player)==LudoPlayerQLearningAction:
     #             player.append_reward()
 
     # for player in players:
-    #     if type(player)==LudoPlayerQLearningToken:
-    #         player.saveQTable() # only one player that is Qlearning        
+    #     if type(player)==LudoPlayerQLearningAction:
+    #         player.saveQTable() 
     #         player.saveReward()
-
 
     # duration = time.time() - start_time
 
+    # print('win distribution percentage', (score/np.sum(score))*100)
     # print('win distribution:', score)
 
-    # print('win distribution percentage', (score/np.sum(score))*100)
-    # print('games per second:', n / duration)
-
     Plot = PlotStatistics()
-    Plot.plotReward(pathToCSV=f'Qlearning_token_logs/Reward_token_40000_e-{e}_d-{d}_a-{a}.csv', numMovAvg=1000)
+    Plot.plotReward(pathToCSV=f'Qlearning_action_logs/1Reward_action_r_win_e-{epsilon}_d-{discount_factor}_a-{learning_rate}.csv', numMovAvg=1000)
 
 def main():
-    normal_training()
-    #param_optimization()
+   #param_optimization()
+   normal_play()
 
 
 if __name__ == "__main__":

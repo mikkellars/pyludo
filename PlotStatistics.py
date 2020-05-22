@@ -81,10 +81,10 @@ class PlotStatistics:
                 gen_chromosomes.append(tmp_chromosomes)
         gen_chromosomes = np.array(gen_chromosomes)
         print(len(gen_chromosomes[2][:,0]))
-        ax.scatter(gen_chromosomes[0][:,0], gen_chromosomes[0][:,1], gen_chromosomes[0][:,2], marker='o', color=['red']) # generation 1 (x,y,z)
-        ax.scatter(gen_chromosomes[1][:,0], gen_chromosomes[1][:,1], gen_chromosomes[1][:,2], marker='^', color=['blue']) # generation 2 (x,y,z)
-        ax.scatter(gen_chromosomes[2][:,0], gen_chromosomes[2][:,1], gen_chromosomes[2][:,2], marker='*', color=['green']) # generation 3 (x,y,z)
-
+        ax.scatter(gen_chromosomes[0][:,0], gen_chromosomes[0][:,1], gen_chromosomes[0][:,2], marker='o', color=['red'], label='Generation 1') # generation 1 (x,y,z)
+        ax.scatter(gen_chromosomes[1][:,0], gen_chromosomes[1][:,1], gen_chromosomes[1][:,2], marker='^', color=['blue'], label='Generation 50') # generation 2 (x,y,z)
+        ax.scatter(gen_chromosomes[2][:,0], gen_chromosomes[2][:,1], gen_chromosomes[2][:,2], marker='*', color=['green'], label='Generation 100') # generation 3 (x,y,z)
+        ax.legend()
         #for gen_chrom in gen_chromosomes:1, 1.5, 2.5, 3, 3.5, 6.5, 5, 6, 7, 8, 7.5 
            # ax.scatter(gen_chrom[:,0], gen_chrom[:,1], gen_chrom[:,2])
 
@@ -94,7 +94,7 @@ class PlotStatistics:
 
         plt.show()
 
-    def plot_chromosome_2D(self, path_to_csv):
+    def plot_chromosome_2D(self, path_to_csv, labels):
         gen_chromosomes = []
 
         with open(path_to_csv, mode='r') as csv_file:        
@@ -109,8 +109,42 @@ class PlotStatistics:
         
         gen_chromosomes = np.array(gen_chromosomes)
 
-        #fig, ax = plt.subplots(4, 2)
+        plot_idx = 0
+        prev = 0
 
+        for chrom_i in range(0,(len(gen_chromosomes[0][0])),2):
+            fig = plt.figure(plot_idx)
+            ax = fig.add_subplot()
+            # ax[plot_idx].axis('equal')
+            ax.scatter(gen_chromosomes[0][:,chrom_i], gen_chromosomes[0][:,chrom_i+1], marker='o', color=['red']) # generation 1
+            ax.scatter(gen_chromosomes[1][:,chrom_i], gen_chromosomes[1][:,chrom_i+1], marker='^', color=['blue']) # generation 2
+            ax.scatter(gen_chromosomes[2][:,chrom_i], gen_chromosomes[2][:,chrom_i+1], marker='*', color=['green']) # generation 3
+            ax.set_xlabel(labels[chrom_i])
+            ax.set_ylabel(labels[chrom_i+1])        
+
+
+            if prev == chrom_i:
+                plot_idx += 1
+
+
+        plt.show()
+
+    def plot_chromosome_2D_qlearning(self, path_to_csv, labels):
+        gen_chromosomes = []
+
+        with open(path_to_csv, mode='r') as csv_file:        
+            for i, row in enumerate(csv_file):
+                tmp_chromosomes = []
+                for j in range(len(row)): # all chromosome from one generations
+                    if row[j] == '[':
+                        r = np.fromstring(row[1+j:-1], sep=' ')
+                        tmp_chromosomes.append(r)
+
+                gen_chromosomes.append(tmp_chromosomes)
+        
+        gen_chromosomes = np.array(gen_chromosomes)
+
+    
         plot_idx = 0
         prev = 0
 
@@ -121,12 +155,15 @@ class PlotStatistics:
                 if chrom_i >= chrom_j:
                     continue
                 # ax[plot_idx].axis('equal')
-                ax.scatter(gen_chromosomes[0][:,chrom_i], gen_chromosomes[0][:,chrom_j], marker='o', color=['red']) # generation 1
-                ax.scatter(gen_chromosomes[1][:,chrom_i], gen_chromosomes[1][:,chrom_j], marker='^', color=['blue']) # generation 2
-                ax.scatter(gen_chromosomes[2][:,chrom_i], gen_chromosomes[2][:,chrom_j], marker='*', color=['green']) # generation 3
-                ax.set_xlabel(r'$\theta$%s' %(chrom_i+1))
-                ax.set_ylabel(r'$\theta$%s' %(chrom_j+1))
+                ax.scatter(gen_chromosomes[0][:,chrom_i], gen_chromosomes[0][:,chrom_j], marker='o', color=['red'], label='Generation 1') # generation 1
+                ax.scatter(gen_chromosomes[1][:,chrom_i], gen_chromosomes[1][:,chrom_j], marker='^', color=['blue'], label='Generation 50') # generation 2
+                ax.scatter(gen_chromosomes[2][:,chrom_i], gen_chromosomes[2][:,chrom_j], marker='*', color=['green'], label='Generation 100') # generation 3
+               # ax.set_xlabel(r'$\theta$%s' %(chrom_i+1))
+               # ax.set_ylabel(r'$\theta$%s' %(chrom_j+1))
+                ax.set_xlabel(labels[chrom_i])
+                ax.set_ylabel(labels[chrom_j])        
 
+                ax.legend()
                 if prev == chrom_i:
                     plot_idx += 1
 

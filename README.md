@@ -29,3 +29,4 @@ Learns the genes of the chromosomes which weights the actions:
 - **Move into goal:** Moves a token into the goal
 - **Send opponent home:** Moves a token into the opponent's token so the opponents token is send home
 - **Send self home:** Moves a token so it is send home
+Chooses the token which has the largest sum of the (actions multiplied chromosome)

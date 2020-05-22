@@ -1,5 +1,5 @@
 # pyludo
-Artificial intelligence algorithms made for the Ludo game. 
+Artificial intelligence algorithms made for the Ludo game forked from Rasmus Haugaard. 
 Two main algorithms are made 
 
 ## State
